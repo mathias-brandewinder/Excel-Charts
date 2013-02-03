@@ -13,7 +13,34 @@ let Attach () =
     | _ -> 
         printfn "Could not attach to Excel"
         None
-    
+
+let Active () =
+    let xl = Attach ()
+    match xl with
+    | None -> None
+    | Some(xl) ->
+        try
+            xl.ActiveWorkbook |> Some   
+        with
+        | _ ->
+            printfn "Could not find active workbook"
+            None
+
+let NewChart () =
+    let wb = Active ()
+    match wb with
+    | None ->
+        printfn "No workbook"
+        None 
+    | Some(wb) ->
+        try
+            let charts = wb.Charts
+            charts.Add () :?> Chart |> Some
+        with
+        | _ -> 
+            printfn "Failed to create chart"
+            None
+         
 let WB (name: string) (xl: Microsoft.Office.Interop.Excel.Application Option) =
     match xl with
     | None -> 
@@ -60,13 +87,35 @@ let LINE data (name: string) (chart: Chart) =
     series.Values <- values
     series.XValues <- labels
     series.Name <- name
-    series.Type <- (int)XlChartType.xlLine
+    series.ChartType <- XlChartType.xlLine
 
     chart
 
-//let XY data (name: string) (chart: Chart) =
-//
-//    let grouped = data |> Seq.groupBy snd
-//    grouped
-//    |> Seq.map (fun (g, el) -> el)
-//    |> Seq.m
+// Plots a function of one parameter over an interval
+let PLOT (f: float -> float) over =
+    match NewChart () with
+    | None -> ignore ()
+    | Some(chart) ->
+        chart.ChartType <- XlChartType.xlXYScatter
+        let min, max = over
+        let step = (max - min) / 50.
+        let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
+        let series = seriesCollection.NewSeries()
+        series.XValues <- [| min .. step .. max |]
+        series.Values <- [| min .. step .. max |] |> Array.map f 
+
+// Plots surface of a two parameters function over an interval
+let SURF f over =
+    match NewChart () with
+    | None -> ignore ()
+    | Some(chart) ->
+        let (minX, maxX), (minY, maxY) = over
+        let stepX = (maxX - minX) / 20.
+        let stepY = (maxY - minY) / 20.
+        let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
+        for x in minX .. stepX .. maxX do
+            let series = seriesCollection.NewSeries()
+            series.Name <- (string)x
+            series.XValues <- [| minY .. stepY .. maxY |]
+            series.Values <- [| minX .. stepX .. maxX |] |> Array.map (fun y -> f x y)
+        chart.ChartType <- XlChartType.xlSurfaceWireframe
