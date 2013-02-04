@@ -4,6 +4,7 @@
 open Microsoft.Office.Interop.Excel
 open System.Runtime.InteropServices
 
+// Attach to the running instance of Excel, if any
 let Attach () = 
     try
         Marshal.GetActiveObject("Excel.Application") 
@@ -11,9 +12,10 @@ let Attach () =
         |> Some
     with
     | _ -> 
-        printfn "Could not attach to Excel"
+        printfn "Could not find running instance of Excel"
         None
 
+// Find the Active workbook, if any
 let Active () =
     let xl = Attach ()
     match xl with
@@ -26,6 +28,7 @@ let Active () =
             printfn "Could not find active workbook"
             None
 
+// Create a new Chart in active workbook
 let NewChart () =
     let wb = Active ()
     match wb with
@@ -40,82 +43,105 @@ let NewChart () =
         | _ -> 
             printfn "Failed to create chart"
             None
-         
-let WB (name: string) (xl: Microsoft.Office.Interop.Excel.Application Option) =
-    match xl with
-    | None -> 
-        printfn "No Excel instance supplied"
-        None
-    | Some(xl) ->
-        try
-            let workbooks = xl.Workbooks
-            workbooks.[name] 
-            |> Some
-        with
-        | _ ->
-            printfn "Workbook '%s' not found" name
-            None
 
-let CHART (name: string) (wb: Workbook Option) =
-    match wb with
-    | None ->
-        printfn "No workbook supplied"
-        None 
-    | Some(wb) ->
-        try
-            let charts = wb.Charts
-            let chart = charts.Add () :?> Chart
-            chart.Location(XlChartLocation.xlLocationAsNewSheet, name)
-            |> Some
-        with
-        | _ -> 
-            printfn "Creating chart '%s' failed" name
-            None
-    
-let TITLE (title: string) (chart: Chart) =
-
-    chart.HasTitle <- true
-    chart.ChartTitle.Text <- title
-    
-let LINE data (name: string) (chart: Chart) =
-
-    let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
-    let series = seriesCollection.NewSeries()
-
-    let labels, values = data
-
-    series.Values <- values
-    series.XValues <- labels
-    series.Name <- name
-    series.ChartType <- XlChartType.xlLine
-
-    chart
-
-// Plots a function of one parameter over an interval
-let PLOT (f: float -> float) over =
-    match NewChart () with
-    | None -> ignore ()
-    | Some(chart) ->
-        chart.ChartType <- XlChartType.xlXYScatter
+// Plots single-argument function(s) over an interval
+type Plot (f: float -> float, over: float * float) =
+    let mutable functions = [ f ]
+    let mutable over = over
+    let mutable grain = 50
+    let chart = NewChart ()
+    let values () = 
         let min, max = over
-        let step = (max - min) / 50.
-        let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
-        let series = seriesCollection.NewSeries()
-        series.XValues <- [| min .. step .. max |]
-        series.Values <- [| min .. step .. max |] |> Array.map f 
-
-// Plots surface of a two parameters function over an interval
-let SURF f over =
-    match NewChart () with
-    | None -> ignore ()
-    | Some(chart) ->
-        let (minX, maxX), (minY, maxY) = over
-        let stepX = (maxX - minX) / 20.
-        let stepY = (maxY - minY) / 20.
-        let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
-        for x in minX .. stepX .. maxX do
+        let step = (max - min) / (float)grain
+        [| min .. step .. max |]
+    let draw f =
+        match chart with
+        | None -> ignore ()
+        | Some(chart) -> 
+            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
             let series = seriesCollection.NewSeries()
-            series.Name <- (string)x
-            series.XValues <- [| minY .. stepY .. maxY |]
-            series.Values <- [| minX .. stepX .. maxX |] |> Array.map (fun y -> f x y)
-        chart.ChartType <- XlChartType.xlSurfaceWireframe
+            let xValues = values ()
+            series.XValues <- xValues
+            series.Values <- xValues |> Array.map f
+    let redraw () =
+        match chart with
+        | None -> ignore ()
+        | Some(chart) ->
+            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
+            let count = seriesCollection.Count
+            for s in seriesCollection do s.Delete()
+            functions |> List.iter (fun f -> draw f)
+
+    do
+        match chart with
+        | None -> ignore ()
+        | Some(chart) -> 
+            chart.ChartType <- XlChartType.xlXYScatter
+            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
+            draw f
+
+    member this.Add(f: float -> float) =
+        match chart with
+        | None -> ignore ()
+        | Some(chart) ->
+            functions <- f :: functions
+            draw f
+
+    member this.Redraw () =
+        match chart with
+        | None -> ignore ()
+        | Some(chart) ->
+            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
+            let count = seriesCollection.Count
+            for s in seriesCollection do s.Delete()
+            functions |> List.iter (fun f -> draw f)
+
+    member this.Rescale(min, max) =
+        over <- (min, max)
+        redraw()
+
+    member this.Zoom(zoom: int) =
+        grain <- zoom
+        redraw()        
+
+// Plots surface of 2-argument function
+type Surface (f: float -> float -> float, xOver: (float * float), yOver: (float * float)) =
+    let mutable xOver, yOver = xOver, yOver
+    let mutable grain = 20
+    let chart = NewChart ()
+    let values over = 
+        let min, max = over
+        let step = (max - min) / (float)grain
+        [| min .. step .. max |]
+    let draw () =
+        match chart with
+        | None -> ignore ()
+        | Some(chart) -> 
+            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
+            let xs, ys = values xOver, values yOver
+            for x in xs do
+                let series = seriesCollection.NewSeries()
+                series.Name <- (string)x
+                series.XValues <- ys
+                series.Values <- ys |> Array.map (f x)
+            chart.ChartType <- XlChartType.xlSurfaceWireframe
+    let redraw () =
+        match chart with
+        | None -> ignore ()
+        | Some(chart) ->
+            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
+            for s in seriesCollection do s.Delete()
+            draw ()
+    do
+        match chart with
+        | None -> ignore ()
+        | Some(chart) -> draw ()
+
+    member this.Rescale((xmin, xmax), (ymin, ymax)) =
+        xOver <- (xmin, xmax)
+        yOver <- (ymin, ymax)
+        redraw ()
+
+    member this.Zoom(zoom: int) =
+        grain <- zoom
+        redraw ()              
