@@ -145,3 +145,19 @@ type Surface (f: float -> float -> float, xOver: (float * float), yOver: (float 
     member this.Zoom(zoom: int) =
         grain <- zoom
         redraw ()              
+
+// Create XY scatterplot, colored by group
+let scatterplot<'a when 'a: equality> (data: (float * float * 'a ) seq) =
+    let chart = NewChart ()
+    match chart with
+    | None -> ignore ()
+    | Some(chart) -> 
+        let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
+        let groups = data |> Seq.map (fun (_, _, g) -> g) |> Seq.distinct
+        for group in groups do
+            let xs, ys, gs = data |> Seq.filter (fun (_, _, g) -> g = group) |> Seq.toArray |> Array.unzip3
+            let series = seriesCollection.NewSeries()
+            series.Name <- group.ToString()
+            series.XValues <- ys
+            series.Values <- xs
+        chart.ChartType <- XlChartType.xlXYScatter
