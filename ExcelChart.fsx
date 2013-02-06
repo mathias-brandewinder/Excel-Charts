@@ -69,7 +69,7 @@ type Plot (f: float -> float, over: float * float) =
         | Some(chart) ->
             let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
             let count = seriesCollection.Count
-            for s in seriesCollection do s.Delete()
+            for s in seriesCollection do s.Delete() |> ignore
             functions |> List.iter (fun f -> draw f)
 
     do
@@ -86,15 +86,6 @@ type Plot (f: float -> float, over: float * float) =
         | Some(chart) ->
             functions <- f :: functions
             draw f
-
-    member this.Redraw () =
-        match chart with
-        | None -> ignore ()
-        | Some(chart) ->
-            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
-            let count = seriesCollection.Count
-            for s in seriesCollection do s.Delete()
-            functions |> List.iter (fun f -> draw f)
 
     member this.Rescale(min, max) =
         over <- (min, max)
@@ -121,9 +112,15 @@ type Surface (f: float -> float -> float, xOver: (float * float), yOver: (float 
             let xl = chart.Application
             xl.ScreenUpdating <- false
             let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
-            for s in seriesCollection do s.Delete()
-            draw ()
+            for s in seriesCollection do s.Delete()  |> ignore
+            let xs, ys = values xOver, values yOver
+            for x in xs do
+                let series = seriesCollection.NewSeries()
+                series.Name <- (string)x
+                series.XValues <- ys
+                series.Values <- ys |> Array.map (f x)
             xl.ScreenUpdating <- true
+
     do
         match chart with
         | None -> ignore ()
