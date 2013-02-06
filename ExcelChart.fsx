@@ -146,12 +146,41 @@ let scatterplot<'a when 'a: equality> (data: (float * float * 'a ) seq) =
     match chart with
     | None -> ignore ()
     | Some(chart) -> 
+        let xl = chart.Application
+        xl.ScreenUpdating <- false
         let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
         let groups = data |> Seq.map (fun (_, _, g) -> g) |> Seq.distinct
         for group in groups do
-            let xs, ys, gs = data |> Seq.filter (fun (_, _, g) -> g = group) |> Seq.toArray |> Array.unzip3
+            let xs, ys, _ = data |> Seq.filter (fun (_, _, g) -> g = group) |> Seq.toArray |> Array.unzip3
             let series = seriesCollection.NewSeries()
             series.Name <- group.ToString()
-            series.XValues <- ys
-            series.Values <- xs
+            series.XValues <- xs
+            series.Values <- ys
         chart.ChartType <- XlChartType.xlXYScatter
+        xl.ScreenUpdating <- true
+
+// Create XY scatterplot, colored by group, with labels
+let labeledplot<'a when 'a: equality> (data: (float * float * 'a * string ) seq) =
+    let chart = NewChart ()
+    match chart with
+    | None -> ignore ()
+    | Some(chart) -> 
+        let xl = chart.Application
+        xl.ScreenUpdating <- false
+        let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
+        let groups = data |> Seq.map (fun (_, _, g, _) -> g) |> Seq.distinct
+        for group in groups do
+            let filtered = data |> Seq.filter (fun (_, _, g, _) -> g = group) |> Seq.toArray
+            let xs = filtered |> Array.map (fun (x, _, _, _) -> x)
+            let ys = filtered |> Array.map (fun (_, y, _, _) -> y)
+            let ls = filtered |> Array.map (fun (_, _, _, l) -> l)
+            let series = seriesCollection.NewSeries()
+            series.Name <- group.ToString()
+            series.XValues <- xs
+            series.Values <- ys
+            series.HasDataLabels <- true            
+            for i in 1 .. filtered.Length do 
+                let point = series.Points(i) :?> Point
+                point.DataLabel.Text <- ls.[i-1]
+        chart.ChartType <- XlChartType.xlXYScatter
+        xl.ScreenUpdating <- true
