@@ -113,29 +113,23 @@ type Surface (f: float -> float -> float, xOver: (float * float), yOver: (float 
         let min, max = over
         let step = (max - min) / (float)grain
         [| min .. step .. max |]
-    let draw () =
-        match chart with
-        | None -> ignore ()
-        | Some(chart) -> 
-            let seriesCollection = chart.SeriesCollection() :?> SeriesCollection
-            let xs, ys = values xOver, values yOver
-            for x in xs do
-                let series = seriesCollection.NewSeries()
-                series.Name <- (string)x
-                series.XValues <- ys
-                series.Values <- ys |> Array.map (f x)
-            chart.ChartType <- XlChartType.xlSurfaceWireframe
+
     let redraw () =
         match chart with
         | None -> ignore ()
         | Some(chart) ->
+            let xl = chart.Application
+            xl.ScreenUpdating <- false
             let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
             for s in seriesCollection do s.Delete()
             draw ()
+            xl.ScreenUpdating <- true
     do
         match chart with
         | None -> ignore ()
-        | Some(chart) -> draw ()
+        | Some(chart) -> 
+            redraw ()
+            chart.ChartType <- XlChartType.xlSurfaceWireframe
 
     member this.Rescale((xmin, xmax), (ymin, ymax)) =
         xOver <- (xmin, xmax)
