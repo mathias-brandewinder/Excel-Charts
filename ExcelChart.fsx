@@ -119,14 +119,13 @@ type Surface (f: float -> float -> float, xOver: (float * float), yOver: (float 
                 series.Name <- (string)x
                 series.XValues <- ys
                 series.Values <- ys |> Array.map (f x)
+            chart.ChartType <- XlChartType.xlSurfaceWireframe
             xl.ScreenUpdating <- true
 
     do
         match chart with
         | None -> ignore ()
-        | Some(chart) -> 
-            redraw ()
-            chart.ChartType <- XlChartType.xlSurfaceWireframe
+        | Some(chart) -> redraw ()
 
     member this.Rescale((xmin, xmax), (ymin, ymax)) =
         xOver <- (xmin, xmax)
