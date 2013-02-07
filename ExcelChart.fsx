@@ -68,7 +68,6 @@ type Plot (f: float -> float, over: float * float) =
         | None -> ignore ()
         | Some(chart) ->
             let seriesCollection = chart.SeriesCollection() :?> SeriesCollection            
-            let count = seriesCollection.Count
             for s in seriesCollection do s.Delete() |> ignore
             functions |> List.iter (fun f -> draw f)
 
@@ -180,3 +179,48 @@ let labeledplot<'a when 'a: equality> (data: (float * float * 'a * string ) seq)
                 point.DataLabel.Text <- ls.[i-1]
         chart.ChartType <- XlChartType.xlXYScatter
         xl.ScreenUpdating <- true
+
+//// Usage / illustration
+//// Fire up Excel, uncomment the next lines,
+//// run in FSI, line by line, and go "oh! ah!" ...
+//// The funky 3D functions come from Dr. Abdel-Rahman Hedar's awesome page:
+//// http://www-optima.amp.i.kyoto-u.ac.jp/member/student/hedar/Hedar_files/TestGO_files/Page364.htm
+
+//let pi = System.Math.PI
+
+//// Simple function plot
+
+//let f x = cos x
+//let p = Plot(f, (0., 1.))
+//let g x = sin x
+//p.Add(g)
+//let h x = f(x) * g(x*x)
+//p.Add(h)
+//p.Rescale(-pi, pi)
+//p.Zoom(200)
+//let i x = f(x) * g(x) * x
+//p.Add(i)
+//p.Zoom(500)
+
+//// 3D plots on funky functions
+//let booth x y = 
+//    pown (x + 2. * y - 7.) 2 
+//    + pown (2. * x + y - 5.) 2
+//
+//let s1 = Surface(booth, (-10., 10.), (-10., 10.))
+//
+//let branin x y = 
+//    pown (y - (5. / (4. * pown pi 2)) * pown x 2 + 5. * x / pi - 6.) 2 
+//    + 10.* (1. - 1./ (8. * pi)) * cos(x) + 10.
+//
+//let s2 = Surface(branin, (-5., 10.), (0., 15.))
+//s2.Zoom(50)
+//
+//let schwefel x y = 
+//    - sin(sqrt(abs(x))) * x 
+//    - sin(sqrt(abs(y))) * y 
+//let s3 = Surface(schwefel, (-1., 1.), (-1., 1.))
+//s3.Zoom(50)
+//s3.Rescale((-10., 10.), (-10., 10.))
+//s3.Rescale((-100., 100.), (-100., 100.))
+//s3.Rescale((-1000., 1000.), (-1000., 1000.))
