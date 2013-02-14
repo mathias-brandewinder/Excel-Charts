@@ -28,6 +28,23 @@ let Active () =
             printfn "Could not find active workbook"
             None
 
+// Grab Selected Range, if any
+let Selection () =
+    let wb = Active ()
+    match wb with
+    | None -> None
+    | Some(wb) ->
+        try
+            let worksheet = wb.ActiveSheet :?> Worksheet
+            let selection = worksheet.UsedRange
+            selection.Value2 :?> System.Object [,] 
+            |> Array2D.map (fun e -> e.ToString()) |> Some             
+        with
+        | _ ->
+            printfn "Invalid active selection"
+            None
+
+
 // Create a new Chart in active workbook
 let NewChart () =
     let wb = Active ()
