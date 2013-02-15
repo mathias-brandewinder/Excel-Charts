@@ -30,20 +30,18 @@ let Active () =
 
 // Grab Selected Range, if any
 let Selection () =
-    let wb = Active ()
-    match wb with
+    let xl = Attach ()
+    match xl with
     | None -> None
-    | Some(wb) ->
+    | Some(xl) ->
         try
-            let worksheet = wb.ActiveSheet :?> Worksheet
-            let selection = worksheet.UsedRange
+            let selection = xl.Selection :?> Range
             selection.Value2 :?> System.Object [,] 
             |> Array2D.map (fun e -> e.ToString()) |> Some             
         with
         | _ ->
             printfn "Invalid active selection"
             None
-
 
 // Create a new Chart in active workbook
 let NewChart () =
