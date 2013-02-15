@@ -28,6 +28,12 @@ let Active () =
             printfn "Could not find active workbook"
             None
 
+let private flatten (arr: string [,]) =
+    let iMax = Array2D.length1 arr
+    let jMax = Array2D.length2 arr
+    [| for i in 1 .. iMax ->
+        [| for j in 1 .. jMax -> arr.[i,j] |] |]
+
 // Grab Selected Range, if any
 let Selection () =
     let xl = Attach ()
@@ -37,7 +43,8 @@ let Selection () =
         try
             let selection = xl.Selection :?> Range
             selection.Value2 :?> System.Object [,] 
-            |> Array2D.map (fun e -> e.ToString()) |> Some             
+            |> Array2D.map (fun e -> e.ToString())
+            |> flatten |> Some             
         with
         | _ ->
             printfn "Invalid active selection"
